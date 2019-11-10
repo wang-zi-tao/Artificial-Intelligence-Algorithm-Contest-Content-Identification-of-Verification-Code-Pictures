@@ -8,15 +8,16 @@ from keras.preprocessing import image
 from keras.callbacks import *
 from keras import *
 from keras.layers import *
+from keras.optimizers import *
 from sklearn.model_selection import train_test_split
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
-
+import matplotlib.pyplot as plt
 config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 
-default_train_times=8
+default_train_times=128
 model_file='./model/model.h5'
 train_dir = "./验证码图片内容识别竞赛数据/train/"
 test_dir = "./验证码图片内容识别竞赛数据/train/"
@@ -104,11 +105,49 @@ def load_text_pictrue():
         image_tensor = image.img_to_array(image_data)
         image_data_list.append(image_tensor)
     return image_data_list, image_name_list
+class LossHistory(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.losses = {'batch':[], 'epoch':[]}
+        self.accuracy = {'batch':[], 'epoch':[]}
+        self.val_loss = {'batch':[], 'epoch':[]}
+        self.val_acc = {'batch':[], 'epoch':[]}
 
+    def on_batch_end(self, batch, logs={}):
+        self.losses['batch'].append(logs.get('loss'))
+        self.accuracy['batch'].append(logs.get('acc'))
+        self.val_loss['batch'].append(logs.get('val_loss'))
+        self.val_acc['batch'].append(logs.get('val_acc'))
+
+    def on_epoch_end(self, batch, logs={}):
+        self.losses['epoch'].append(logs.get('loss'))
+        self.accuracy['epoch'].append(logs.get('acc'))
+        self.val_loss['epoch'].append(logs.get('val_loss'))
+        self.val_acc['epoch'].append(logs.get('val_acc'))
+
+    def loss_plot(self, loss_type):
+        iters = range(len(self.losses[loss_type]))
+        plt.figure()
+        # acc
+        plt.plot(iters, self.accuracy[loss_type], 'r', label='train acc')
+        # loss
+        plt.plot(iters, self.losses[loss_type], 'g', label='train loss')
+        if loss_type == 'epoch':
+            # val_acc
+            plt.plot(iters, self.val_acc[loss_type], 'b', label='val acc')
+            # val_loss
+            plt.plot(iters, self.val_loss[loss_type], 'k', label='val loss')
+        plt.grid(True)
+        plt.xlabel(loss_type)
+        plt.ylabel('acc-loss')
+        plt.legend(loc="upper right")
+        plt.show()
 
 def main():
-    if os.path.exists(model_file):
-        model=load_model()
+    if True:
+        if os.path.exists(model_file):
+            model=load_model()
+        else:
+            model=creat_model(image_shape)
     else:
         model=creat_model(image_shape)
     train_images, train_labels,test_images,test_labels=load_train_picture_and_label()
@@ -120,48 +159,56 @@ def main():
 # 构建模型
 def creat_model(input_shape):
     pic_in = Input(shape=input_shape)
-    # Block 1
-    cnn_features = Conv2D(32, (7,7), activation='relu', padding='same')(pic_in)
-    cnn_features = Conv2D(32, (7,7), activation='relu', padding='same')(cnn_features)
+    cnn_features = Conv2D(32, (5,5), activation='relu',kernel_initializer='he_uniform')(pic_in)
+    cnn_features = Conv2D(32, (5,5), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
-    # Block 2
-    cnn_features = Conv2D(64, (7,7), activation='relu',padding='same')(cnn_features)
-    cnn_features = Conv2D(64, (7,7), activation='relu', padding='same')(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features = Conv2D(48, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Conv2D(64, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
-    # Block 3
-    cnn_features = Conv2D(128, (7,7), activation='relu',padding='same')(cnn_features)
-    cnn_features = Conv2D(128, (7,7), activation='relu',padding='same')(cnn_features)
+    cnn_features = Conv2D(96, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Conv2D(128, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.1)(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
+    #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
+    #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
+    #cnn_features = MaxPooling2D((2, 2))(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
+    #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
+    #cnn_features = Conv2D(256, (5,5), activation='relu',padding='same')(cnn_features)
+    #cnn_features = MaxPooling2D((2, 2))(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
     cnn_features = Flatten()(cnn_features)
-    cnn_features = Dense(256)(cnn_features)
-    cnn_features = Dropout(0.1)(cnn_features)
+    cnn_features = Dense(1024,activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Dropout(0.25)(cnn_features)
+    '''
+    cnn_features = Dense(1024,activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features = Dense(512,activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Dropout(0.25)(cnn_features)
+    '''
     # classifier 1
-    output_l1 = Dense(128, activation='relu')(cnn_features)
-    output_l1 = Dropout(0.1)(output_l1)
-    output_l1 = Dense(128, activation='softmax')(output_l1)
-    output_l1 = Dense(62)(output_l1)
+    output_l1 = Dense(128, activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    output_l1 = Dropout(0.25)(output_l1)
+    output_l1 = Dense(62, activation='softmax',kernel_initializer='he_uniform')(output_l1)
     # classifier 2
-    output_l2 = Dense(128, activation='relu')(cnn_features)
-    output_l2 = Dropout(0.1)(output_l2)
-    output_l2 = Dense(128, activation='softmax')(output_l2)
-    output_l2 = Dense(62)(output_l1)
+    output_l2 = Dense(128, activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    output_l2 = Dropout(0.25)(output_l2)
+    output_l2 = Dense(62, activation='softmax',kernel_initializer='he_uniform')(output_l2)
     # classifier 3
-    output_l3 = Dense(128, activation='relu')(cnn_features)
-    output_l3 = Dropout(0.1)(output_l3)
-    output_l3 = Dense(128, activation='softmax')(output_l3)
-    output_l3 = Dense(62)(output_l1)
+    output_l3 = Dense(128, activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    output_l3 = Dropout(0.25)(output_l3)
+    output_l3 = Dense(62, activation='softmax',kernel_initializer='he_uniform')(output_l3)
     # classifier 4
-    output_l4 = Dense(128, activation='relu')(cnn_features)
-    output_l4 = Dropout(0.1)(output_l4)
-    output_l4 = Dense(128, activation='softmax')(output_l4)
-    output_l4 = Dense(62)(output_l1)
+    output_l4 = Dense(128, activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    output_l4 = Dropout(0.25)(output_l4)
+    output_l4 = Dense(62, activation='softmax',kernel_initializer='he_uniform')(output_l4)
+
 
     model = Model(inputs=pic_in, outputs=[output_l1, output_l2, output_l3, output_l4])
 
-    model.compile(optimizer='adam',
+    model.compile(
+              optimizer='adam',
               loss='categorical_crossentropy',
               loss_weights=[1., 1., 1., 1.], 
               metrics=['accuracy'])
@@ -170,21 +217,20 @@ def creat_model(input_shape):
 
 
 def train(model,train_images, train_labels,test_images,test_labels,times=default_train_times):
-    history = History()
-    model_checkpoint = ModelCheckpoint('./log/temp_model.png', monitor='loss', save_best_only=True)
-    tb_cb = keras.callbacks.TensorBoard(log_dir='log', write_images=1, histogram_freq=0)
+    history=LossHistory()
     callbacks = [
-        history,
-        model_checkpoint,
-        tb_cb
+        history
     ]
     model.fit(train_images,train_labels,
           epochs=times,
           #batch_size=batch_size,
           #validation_split=test_rate,
-          verbose=2,
+          verbose=1,
           callbacks=callbacks,
-          validation_data=(test_images,test_labels))
+          validation_data=(test_images,test_labels)
+          #validation_split=0.1
+          )
+    history.loss_plot('epoch')
     return -1
 
 
