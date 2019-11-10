@@ -19,15 +19,43 @@ session = InteractiveSession(config=config)
 
 default_train_times=16
 model_file='./model/model.h5'
+predict_result_file='./predict_result.csv'
 train_dir = "./验证码图片内容识别竞赛数据/train/"
-test_dir = "./验证码图片内容识别竞赛数据/train/"
+test_dir = "./验证码图片内容识别竞赛数据/test/"
 image_shape=(40,120,3)
 test_rate=0.1
 batch_size = 128
+def compare(predict,label):
+    n=predict[0].shape[0]
+    '''
+    c=0
+    for i in range(0,n):
+        for j in range(0,4):
+            l=np.argmax(predict[j,i])
+            if(label[j,l]!=1):
+                break
+        else:
+            c+=1
+    return c/n
+    '''
+    label_argmax=np.array(label).argmax(axis=2)
+    predict_argmax=np.array(predict).argmax(axis=2)
+    
+    #print(label_argmax)
+    #print(predict_argmax)
+    return (label_argmax==predict_argmax).all(axis=(0,)).sum()/n
+
 def int_to_tensor(i,n):
     t=np.zeros((n,))
     t[i]=1.0
     return t
+def int_to_base64_char(i):
+    if 0<=i<=9:
+        return chr(i+48)
+    if 10<=i<=35:
+        return chr(i+55)
+    if 36<=i<=61:
+        return chr(i+61)
 def base64_char_to_int(char):
     c=ord(char)
     if 48<=c<=57:
@@ -44,16 +72,10 @@ def load_train_picture_and_label():
     train_label_c2=[]
     train_label_c3=[]
 
-    test_label_c0=[]
-    test_label_c1=[]
-    test_label_c2=[]
-    test_label_c3=[]
-
     train_images = []
-    test_images = []
 
     random.seed()
-    pd_data = pd.read_csv(test_dir+'train_label.csv')
+    pd_data = pd.read_csv(train_dir+'train_label.csv')
     for i in range(0, pd_data.shape[0]):
         file = pd_data.iloc[i, 0]
         label = pd_data.iloc[i, 1]
@@ -63,47 +85,34 @@ def load_train_picture_and_label():
         label_tensor_1=int_to_tensor(base64_char_to_int(label[1]),62)
         label_tensor_2=int_to_tensor(base64_char_to_int(label[2]),62)
         label_tensor_3=int_to_tensor(base64_char_to_int(label[3]),62)
-        if random.random()<test_rate:
-            test_images.append(image_tensor)
-            test_label_c0.append(label_tensor_0)
-            test_label_c1.append(label_tensor_1)
-            test_label_c2.append(label_tensor_2)
-            test_label_c3.append(label_tensor_3)
-        else:
-            train_images.append(image_tensor)
-            train_label_c0.append(label_tensor_0)
-            train_label_c1.append(label_tensor_1)
-            train_label_c2.append(label_tensor_2)
-            train_label_c3.append(label_tensor_3)
+        train_images.append(image_tensor)
+        train_label_c0.append(label_tensor_0)
+        train_label_c1.append(label_tensor_1)
+        train_label_c2.append(label_tensor_2)
+        train_label_c3.append(label_tensor_3)
 
     train_images=np.array(train_images,dtype='float')/255.0
-    test_images=np.array(test_images,dtype='float')/255.0
 
     train_label_c0=np.array(train_label_c0,dtype='float')
     train_label_c1=np.array(train_label_c1,dtype='float')
     train_label_c2=np.array(train_label_c2,dtype='float')
     train_label_c3=np.array(train_label_c3,dtype='float')
 
-    test_label_c0=np.array(test_label_c0,dtype='float')
-    test_label_c1=np.array(test_label_c1,dtype='float')
-    test_label_c2=np.array(test_label_c2,dtype='float')
-    test_label_c3=np.array(test_label_c3,dtype='float')
-
     train_labels = [train_label_c0,train_label_c1,train_label_c2,train_label_c3]
-    test_labels = [test_label_c0,test_label_c1,test_label_c2,test_label_c3]
 
-    return train_images, train_labels,test_images,test_labels
+    return train_images, train_labels
 
 # 加载测试图片和文件名
-def load_text_pictrue():
-    image_file_list = glob.glob(test_dir+'*.jpg')
+def load_predict_pictrue():
     image_name_list = []
     image_data_list = []
-    for file in image_file_list:
+    for i in range(1,5001):
+        file=str(i)+'.jpg'
         image_name_list.append(file)
-        image_data = image.load_img(file)
+        image_data = image.load_img(test_dir+file)
         image_tensor = image.img_to_array(image_data)
         image_data_list.append(image_tensor)
+    image_data_list=np.array(image_data_list,dtype='float')/255.0
     return image_data_list, image_name_list
 class LossHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
@@ -150,9 +159,15 @@ def main():
             model=creat_model(image_shape)
     else:
         model=creat_model(image_shape)
-    train_images, train_labels,test_images,test_labels=load_train_picture_and_label()
-    train(model,train_images, train_labels,test_images,test_labels)
-    store_model(model)
+    if True:
+        train_images, train_labels=load_train_picture_and_label()
+        while True:
+            train(model,train_images, train_labels,times=64)
+            store_model(model)
+    if False:
+        predict_image,predict_file_name=load_predict_pictrue()
+        predict_label=predict(model,predict_image)
+        save_predict_result(predict_file_name,predict_label)
 
     
 
@@ -208,7 +223,7 @@ def creat_model(input_shape):
     model = Model(inputs=pic_in, outputs=[output_l1, output_l2, output_l3, output_l4])
 
     model.compile(
-              optimizer='adam',
+              optimizer=Adagrad(),
               loss='categorical_crossentropy',
               loss_weights=[1., 1., 1., 1.], 
               metrics=['accuracy'])
@@ -216,7 +231,7 @@ def creat_model(input_shape):
     return model
 
 
-def train(model,train_images, train_labels,test_images,test_labels,times=default_train_times):
+def train(model,train_images, train_labels,times=default_train_times):
     history=LossHistory()
     callbacks = [
         history
@@ -227,26 +242,28 @@ def train(model,train_images, train_labels,test_images,test_labels,times=default
           #validation_split=test_rate,
           verbose=1,
           callbacks=callbacks,
-          validation_data=(test_images,test_labels)
-          #validation_split=0.1
+          validation_split=0.1
           )
-    
-    train_predict=model.predict(train_images)
-    train_label_tensor=np.array(train_labels)
-    print(((train_predict==train_label_tensor).all(axis=(0,2)).sum())/train_label_tensor.shape[1])
-
-    test_predict=model.predict(test_images)
-    test_label_tensor=np.array(test_labels)
-    print(((test_predict==test_label_tensor).all(axis=(0,2)).sum())/test_label_tensor.shape[1])
+    print(compare(model.predict(train_images[:-500]),[p[:-500] for p in train_labels]))
+    print(compare(model.predict(train_images[-500:]),[p[-500:] for p in train_labels]))
 
     history.loss_plot('epoch')
     return -1
 
+def predict(model,images):
+    predict_tensor=model.predict(images)
+    label_id_tensor=np.array(predict_tensor).argmax(axis=2)
+    label=[]
+    for j in range(0,label_id_tensor.shape[1]):
+        label.append('')
+        for i in range(0,4):
+            label_number=label_id_tensor[i,j]
+            label[-1]+=(int_to_base64_char(label_number))
+    return label
 
-def test():
-    # TODO
-    return -1
-
+def save_predict_result(file_names,labels):
+    frame = pd.DataFrame({'ID':file_names,'label':labels},columns=['ID','label'])
+    frame.to_csv(predict_result_file)
 
 def load_model():
     return keras.models.load_model(model_file)
