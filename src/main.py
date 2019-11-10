@@ -9,7 +9,14 @@ from keras.callbacks import *
 from keras import *
 from keras.layers import *
 from sklearn.model_selection import train_test_split
-default_train_times=256
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
+default_train_times=8
 model_file='./model/model.h5'
 train_dir = "./验证码图片内容识别竞赛数据/train/"
 test_dir = "./验证码图片内容识别竞赛数据/train/"
@@ -86,10 +93,6 @@ def load_train_picture_and_label():
 
     return train_images, train_labels,test_images,test_labels
 
-def random_spilt(images,labels):
-    train_images=[]
-    train_labels=[]
-    #TODO
 # 加载测试图片和文件名
 def load_text_pictrue():
     image_file_list = glob.glob(test_dir+'*.jpg')
@@ -105,7 +108,7 @@ def load_text_pictrue():
 
 def main():
     if os.path.exists(model_file):
-        model=load_model
+        model=load_model()
     else:
         model=creat_model(image_shape)
     train_images, train_labels,test_images,test_labels=load_train_picture_and_label()
@@ -118,43 +121,49 @@ def main():
 def creat_model(input_shape):
     pic_in = Input(shape=input_shape)
     # Block 1
-    cnn_features = Conv2D(32, (3,3), activation='relu', padding='same')(pic_in)
-    cnn_features = Conv2D(32, (3,3), activation='relu')(cnn_features)
+    cnn_features = Conv2D(32, (7,7), activation='relu', padding='same')(pic_in)
+    cnn_features = Conv2D(32, (7,7), activation='relu', padding='same')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
     cnn_features = Dropout(0.25)(cnn_features)
     # Block 2
-    cnn_features = Conv2D(64, (3,3), activation='relu',padding='same')(cnn_features)
-    cnn_features = Conv2D(64, (3,3), activation='relu')(cnn_features)
+    cnn_features = Conv2D(64, (7,7), activation='relu',padding='same')(cnn_features)
+    cnn_features = Conv2D(64, (7,7), activation='relu', padding='same')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
     cnn_features = Dropout(0.25)(cnn_features)
     # Block 3
-    cnn_features = Conv2D(128, (3,3), activation='relu',padding='same')(cnn_features)
-    cnn_features = Conv2D(128, (3,3), activation='relu')(cnn_features)
+    cnn_features = Conv2D(128, (7,7), activation='relu',padding='same')(cnn_features)
+    cnn_features = Conv2D(128, (7,7), activation='relu',padding='same')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features = Dropout(0.1)(cnn_features)
     cnn_features = Flatten()(cnn_features)
+    cnn_features = Dense(256)(cnn_features)
+    cnn_features = Dropout(0.1)(cnn_features)
     # classifier 1
     output_l1 = Dense(128, activation='relu')(cnn_features)
-    output_l1 = Dropout(0.5)(output_l1)
-    output_l1 = Dense(62, activation='softmax')(output_l1)
+    output_l1 = Dropout(0.1)(output_l1)
+    output_l1 = Dense(128, activation='softmax')(output_l1)
+    output_l1 = Dense(62)(output_l1)
     # classifier 2
     output_l2 = Dense(128, activation='relu')(cnn_features)
-    output_l2 = Dropout(0.5)(output_l2)
-    output_l2 = Dense(62, activation='softmax')(output_l2)
+    output_l2 = Dropout(0.1)(output_l2)
+    output_l2 = Dense(128, activation='softmax')(output_l2)
+    output_l2 = Dense(62)(output_l1)
     # classifier 3
     output_l3 = Dense(128, activation='relu')(cnn_features)
-    output_l3 = Dropout(0.5)(output_l3)
-    output_l3 = Dense(62, activation='softmax')(output_l3)
+    output_l3 = Dropout(0.1)(output_l3)
+    output_l3 = Dense(128, activation='softmax')(output_l3)
+    output_l3 = Dense(62)(output_l1)
     # classifier 4
     output_l4 = Dense(128, activation='relu')(cnn_features)
-    output_l4 = Dropout(0.5)(output_l4)
-    output_l4 = Dense(62, activation='softmax')(output_l4)
+    output_l4 = Dropout(0.1)(output_l4)
+    output_l4 = Dense(128, activation='softmax')(output_l4)
+    output_l4 = Dense(62)(output_l1)
 
     model = Model(inputs=pic_in, outputs=[output_l1, output_l2, output_l3, output_l4])
 
     model.compile(optimizer='adam',
               loss='categorical_crossentropy',
-              loss_weights=[1., 1.2, 1.2, 1.], # 给四个分类器同样的权重
+              loss_weights=[1., 1., 1., 1.], 
               metrics=['accuracy'])
 
     return model
@@ -162,7 +171,7 @@ def creat_model(input_shape):
 
 def train(model,train_images, train_labels,test_images,test_labels,times=default_train_times):
     history = History()
-    model_checkpoint = ModelCheckpoint('temp_model.hdf5', monitor='loss', save_best_only=True)
+    model_checkpoint = ModelCheckpoint('./log/temp_model.png', monitor='loss', save_best_only=True)
     tb_cb = keras.callbacks.TensorBoard(log_dir='log', write_images=1, histogram_freq=0)
     callbacks = [
         history,
@@ -171,7 +180,7 @@ def train(model,train_images, train_labels,test_images,test_labels,times=default
     ]
     model.fit(train_images,train_labels,
           epochs=times,
-          batch_size=batch_size,
+          #batch_size=batch_size,
           #validation_split=test_rate,
           verbose=2,
           callbacks=callbacks,
