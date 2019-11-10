@@ -17,7 +17,7 @@ config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 
-default_train_times=128
+default_train_times=16
 model_file='./model/model.h5'
 train_dir = "./验证码图片内容识别竞赛数据/train/"
 test_dir = "./验证码图片内容识别竞赛数据/train/"
@@ -230,6 +230,15 @@ def train(model,train_images, train_labels,test_images,test_labels,times=default
           validation_data=(test_images,test_labels)
           #validation_split=0.1
           )
+    
+    train_predict=model.predict(train_images)
+    train_label_tensor=np.array(train_labels)
+    print(((train_predict==train_label_tensor).all(axis=(0,2)).sum())/train_label_tensor.shape[1])
+
+    test_predict=model.predict(test_images)
+    test_label_tensor=np.array(test_labels)
+    print(((test_predict==test_label_tensor).all(axis=(0,2)).sum())/test_label_tensor.shape[1])
+
     history.loss_plot('epoch')
     return -1
 
