@@ -3,6 +3,7 @@ import glob
 import random
 import keras
 import json
+#import pyinotify
 import numpy as np
 import pandas as pd
 from keras.preprocessing import image
@@ -28,6 +29,7 @@ test_rate=0.1
 batch_size = 128
 '''
 image_shape=(40,120,3)
+config
 def compare(predict,label):
     n=predict[0].shape[0]
     '''
@@ -189,20 +191,25 @@ def main():
 # 构建模型
 def creat_model(input_shape):
     cnn_features = pic_in = Input(shape=input_shape)
-    cnn_features = GaussianDropout(0.4)(cnn_features)
+    cnn_features = GaussianDropout(0.2)(cnn_features)
 
-    cnn_features = Conv2D(32, (5,5), activation='relu',kernel_initializer='he_uniform')(cnn_features)
-    cnn_features = Conv2D(32, (5,5), activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Conv2D(32, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Conv2D(32, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features=SpatialDropout2D(0.1)(cnn_features)
     cnn_features = Conv2D(48, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = Conv2D(48, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
+    cnn_features = Conv2D(48, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features=SpatialDropout2D(0.1)(cnn_features)
     cnn_features = Conv2D(96, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = Conv2D(128, (3,3), activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features=SpatialDropout2D(0.2)(cnn_features)
+    
+    #cnn_features = Dropout(0.2)(cnn_features)
     #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
     #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
     #cnn_features = MaxPooling2D((2, 2))(cnn_features)
@@ -212,8 +219,10 @@ def creat_model(input_shape):
     #cnn_features = MaxPooling2D((2, 2))(cnn_features)
     #cnn_features = Dropout(0.25)(cnn_features)
     cnn_features = Flatten()(cnn_features)
-    cnn_features = Dense(1024,activation='relu',kernel_initializer='he_uniform')(cnn_features)
-    cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features = Dense(1024)(cnn_features)
+    cnn_features=BatchNormalization()(cnn_features)
+    cnn_features=Activation('relu')(cnn_features)
+    #cnn_features = Dropout(0.25)(cnn_features)
     '''
     cnn_features = Dense(1024,activation='relu',kernel_initializer='he_uniform')(cnn_features)
     cnn_features = Dropout(0.25)(cnn_features)
@@ -221,21 +230,33 @@ def creat_model(input_shape):
     cnn_features = Dropout(0.25)(cnn_features)
     '''
     # classifier 1
-    output_l1 = Dense(128, activation='relu',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(cnn_features)
+    output_l1 = Dense(128,activation='relu')(cnn_features)
+    #output_l1 = Dense(128)(cnn_features)
+    #output_l1 = BatchNormalization()(output_l1)
+    #output_l1 = Activation('relu')(output_l1)
     output_l1 = Dropout(0.25)(output_l1)
-    output_l1 = Dense(62, activation='softmax',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(output_l1)
+    output_l1 = Dense(62, activation='softmax')(output_l1)
     # classifier 2
-    output_l2 = Dense(128, activation='relu',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(cnn_features)
+    output_l2 = Dense(128,activation='relu')(cnn_features)
+    #output_l2 = Dense(128)(cnn_features)
+    #output_l2 = BatchNormalization()(output_l2)
+    #output_l2 = Activation('relu')(output_l2)
     output_l2 = Dropout(0.25)(output_l2)
-    output_l2 = Dense(62, activation='softmax',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(output_l2)
+    output_l2 = Dense(62, activation='softmax')(output_l2)
     # classifier 3
-    output_l3 = Dense(128, activation='relu',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(cnn_features)
+    output_l3 = Dense(128,activation='relu')(cnn_features)
+    #output_l3 = Dense(128)(cnn_features)
+    #output_l3 = BatchNormalization()(output_l3)
+    #output_l3 = Activation('relu')(output_l3)
     output_l3 = Dropout(0.25)(output_l3)
-    output_l3 = Dense(62, activation='softmax',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(output_l3)
+    output_l3 = Dense(62, activation='softmax')(output_l3)
     # classifier 4
-    output_l4 = Dense(128, activation='relu',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(cnn_features)
+    output_l4 = Dense(128,activation='relu')(cnn_features)
+    #output_l4 = Dense(128)(cnn_features)
+    #output_l4 = BatchNormalization()(output_l4)
+    #output_l4 = Activation('relu')(output_l4)
     output_l4 = Dropout(0.25)(output_l4)
-    output_l4 = Dense(62, activation='softmax',kernel_initializer='he_uniform',kernel_regularizer=regularizers.l2(0.01))(output_l4)
+    output_l4 = Dense(62, activation='softmax')(output_l4)
 
 
     model = Model(inputs=pic_in, outputs=[output_l1, output_l2, output_l3, output_l4])
@@ -251,7 +272,7 @@ def creat_model(input_shape):
 
 def train(model,train_images, train_labels,config):
     callbacks = [
-        EarlyStopping(patience=5, verbose=1, mode='auto')
+        #EarlyStopping(patience=5, verbose=1, mode='auto')
     ]
     if config['显示图形']:
         callbacks_history=LossHistory()
