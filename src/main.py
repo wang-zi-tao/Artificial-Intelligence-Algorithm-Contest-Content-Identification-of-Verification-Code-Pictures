@@ -11,10 +11,9 @@ from keras.callbacks import *
 from keras import *
 from keras.layers import *
 from keras.optimizers import *
-from sklearn.model_selection import train_test_split
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
@@ -29,7 +28,7 @@ test_rate=0.1
 batch_size = 128
 '''
 image_shape=(40,120,3)
-config
+
 def compare(predict,label):
     n=predict[0].shape[0]
     '''
@@ -123,7 +122,7 @@ def load_predict_pictrue(config):
         image_data_list.append(image_tensor)
     image_data_list=np.array(image_data_list,dtype='float')/255.0
     return image_data_list, image_name_list
-
+'''
 class LossHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
         self.losses = {'batch':[], 'epoch':[]}
@@ -160,7 +159,7 @@ class LossHistory(keras.callbacks.Callback):
         plt.ylabel('acc-loss')
         plt.legend(loc="upper right")
         plt.show()
-
+'''
 def main():
     config=json.loads(open('./config.json',encoding='utf-8').read())
     if config['模型']['放弃']:
@@ -184,7 +183,10 @@ def main():
         predict_config=config['预测']
         predict_image,predict_file_name=load_predict_pictrue(predict_config['预测集'])
         predict_label=predict(model,predict_image)
-        save_predict_result(predict_file_name,predict_label,predict_config)
+        if config['预测']['保存为文件']:
+            save_predict_result(predict_file_name,predict_label,predict_config)
+        else:
+            return pack(predict_file_name,predict_label)
 
 
 
@@ -217,7 +219,7 @@ def creat_model(input_shape):
     #cnn_features = Conv2D(64, (5,5), activation='relu')(cnn_features)
     #cnn_features = Conv2D(256, (5,5), activation='relu',padding='same')(cnn_features)
     #cnn_features = MaxPooling2D((2, 2))(cnn_features)
-    #cnn_features = Dropout(0.25)(cnn_features)
+    cnn_features = Dropout(0.25)(cnn_features)
     cnn_features = Flatten()(cnn_features)
     cnn_features = Dense(1024)(cnn_features)
     cnn_features=BatchNormalization()(cnn_features)
@@ -275,7 +277,7 @@ def train(model,train_images, train_labels,config):
         #EarlyStopping(patience=5, verbose=1, mode='auto')
     ]
     if config['显示图形']:
-        callbacks_history=LossHistory()
+        #callbacks_history=LossHistory()
         callbacks.append(callbacks_history)
     
     if config['扩充']:
@@ -356,8 +358,12 @@ def predict(model,images):
     return label
 
 def save_predict_result(file_names,labels,config):
+    frame = pack(file_names, labels)
+    frame.to_csv(config['预测结果文件路径'],index=False)
+
+def pack(file_names, labels):
     frame = pd.DataFrame({'ID':file_names,'label':labels},columns=['ID','label'])
-    frame.to_csv(config['预测结果文件路径'])
+    return frame
 
 def load_model(config):
     return keras.models.load_model(config['文件路径'])

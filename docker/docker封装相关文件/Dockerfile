@@ -1,4 +1,5 @@
-from conda/miniconda3-centos7
+from tensorflow/tensorflow:nightly-py3
 workdir /code
 copy . /code
-run pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+
+run mkdir /result && pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
