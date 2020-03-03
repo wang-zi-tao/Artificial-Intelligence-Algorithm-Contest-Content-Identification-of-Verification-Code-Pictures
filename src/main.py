@@ -11,13 +11,15 @@ from keras.callbacks import *
 from keras import *
 from keras.layers import *
 from keras.optimizers import *
+'''
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 #import matplotlib.pyplot as plt
+
 config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
-'''
+
 default_train_times=16
 model_file='./model/model.h5'
 predict_result_file='./predict_result.csv'
@@ -277,7 +279,7 @@ def train(model,train_images, train_labels,config):
         #EarlyStopping(patience=5, verbose=1, mode='auto')
     ]
     if config['显示图形']:
-        #callbacks_history=LossHistory()
+        callbacks_history=LossHistory()
         callbacks.append(callbacks_history)
     
     if config['扩充']:
